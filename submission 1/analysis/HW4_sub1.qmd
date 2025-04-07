@@ -1,0 +1,203 @@
+---
+title: "Homework 4"
+subtitle: "Research Methods, Spring 2025"
+author: "Ryan Scholte"
+format:
+  pdf:
+    output-file: "Scholte-i-hw4-1"
+    output-ext: "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
+jupyter: python3
+---
+You can access the [Repository](https://github.com/rscholt/HW4)
+
+# 1 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the data
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the data
+df = pd.read_csv("/Users/ryanscholte/Desktop/GitHub/HW4/data/output/final_ma_data.csv")
+
+
+#Q1
+
+# Normalize column names
+df.columns = df.columns.str.lower()
+
+# Remove SNPs
+df = df[df['snp'] != 'Yes']
+
+# Remove 800-series plans
+df = df[~df['planid'].astype(str).str.startswith('800')]
+
+# Remove prescription drug-only plans (PDPs)
+df = df[~df['plan_type'].str.contains('PDP', na=False)]
+
+# Group by year and county to count number of plans
+plan_counts = (
+    df.groupby(['year', 'county'])
+    .size()
+    .reset_index(name='plan_count')
+)
+
+# Plot a box and whisker plot of plan counts by year
+plt.figure(figsize=(12, 6))
+plan_counts.boxplot(column='plan_count', by='year')
+plt.title('Distribution of Plan Counts by County Over Time')
+plt.suptitle('')
+plt.xlabel('Year')
+plt.ylabel('Number of Plans')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+
+
+```
+
+# 2 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+#Q2
+
+# Normalize column names
+df.columns = df.columns.str.lower()
+
+# Filter data for the years 2010, 2012, and 2015
+df_2010 = df[df['year'] == 2010]
+df_2012 = df[df['year'] == 2012]
+df_2015 = df[df['year'] == 2015]
+
+# Function to plot star rating distribution
+def plot_star_rating_distribution(data, year):
+    star_counts = data['star_rating'].value_counts().sort_index()
+    plt.bar(star_counts.index, star_counts.values)
+    plt.title(f'Star Rating Distribution in {year}')
+    plt.xlabel('Star Rating')
+    plt.ylabel('Number of Plans')
+    plt.xticks(star_counts.index)
+    plt.show()
+
+# Plot star rating distribution for 2010
+plot_star_rating_distribution(df_2010, 2010)
+
+# Plot star rating distribution for 2012
+plot_star_rating_distribution(df_2012, 2012)
+
+# Plot star rating distribution for 2015
+plot_star_rating_distribution(df_2015, 2015)
+
+
+```
+# 3 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+#Q3
+
+# Calculate the average benchmark payment for each year
+average_benchmark_payment = df.groupby('year')['ma_rate'].mean().reset_index()
+
+# Plot the average benchmark payment over time
+plt.figure(figsize=(10, 6))
+plt.plot(average_benchmark_payment['year'], average_benchmark_payment['ma_rate'], marker='o')
+plt.title('Average Benchmark Payment Over Time (2010-2015)')
+plt.xlabel('Year')
+plt.ylabel('Average Benchmark Payment')
+plt.grid(True)
+plt.show()
+
+# Calculate the rise in the average benchmark payment from 2010 to 2015
+benchmark_2010 = average_benchmark_payment[average_benchmark_payment['year'] == 2010]['ma_rate'].values[0]
+benchmark_2015 = average_benchmark_payment[average_benchmark_payment['year'] == 2015]['ma_rate'].values[0]
+rise = benchmark_2015 - benchmark_2010
+
+
+
+```
+# 4 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+#Q4
+
+df3=df.copy()
+
+# Calculate the average share of Medicare Advantage for each year
+df3['ma_share'] = df3['avg_enrolled'] / df3['avg_eligibles']
+df3 = df3.groupby('year')['ma_share'].mean().reset_index()
+
+# Plot the average share of Medicare Advantage over time
+plt.figure(figsize=(10, 6))
+plt.plot(df3['year'], df3['ma_share'], marker='o')
+plt.title('Average Share of Medicare Advantage Over Time (2010-2015)')
+plt.xlabel('Year')
+plt.ylabel('Average Share of Medicare Advantage')
+plt.grid(True)
+plt.show()
+
+
+```
+
+# 5 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+#Q5
+
+df3 = df.copy()
+
+# Filter for 2010
+df3_2010 = df3[df3['year'] == 2010]
+
+# List of variables used in the raw_rating calculation
+rating_vars = [
+    "breastcancer_screen", "rectalcancer_screen", "cv_cholscreen", "diabetes_cholscreen",
+    "glaucoma_test", "monitoring", "flu_vaccine", "pn_vaccine", "physical_health",
+    "mental_health", "osteo_test", "physical_monitor", "primaryaccess",
+    "hospital_followup", "depression_followup", "nodelays", "carequickly",
+    "overallrating_care", "overallrating_plan", "calltime",
+    "doctor_communicate", "customer_service", "osteo_manage",
+    "diabetes_eye", "diabetes_kidney", "diabetes_bloodsugar",
+    "diabetes_chol", "antidepressant", "bloodpressure", "ra_manage",
+    "copd_test", "betablocker", "bladder", "falling", "appeals_timely", "appeals_review"
+]
+
+# Compute raw_rating as the row-wise mean (ignoring NA values)
+df3_2010["raw_rating"] = df3_2010[rating_vars].mean(axis=1, skipna=True)
+
+# Round to nearest 0.5
+df3_2010["rounded_up_rating"] = df3_2010["raw_rating"].apply(lambda x: round(x * 2) / 2 if pd.notnull(x) else None)
+
+# Create summary table: how many plans round to each of the star cutoffs
+summary = (
+    df3_2010[df3_2010["rounded_up_rating"].isin([3.0, 3.5, 4.0, 4.5, 5.0])]
+    .groupby("rounded_up_rating")
+    .size()
+    .reset_index(name="num_plans")
+    .sort_values("rounded_up_rating")
+)
+
+print(summary)
+
+
+```
