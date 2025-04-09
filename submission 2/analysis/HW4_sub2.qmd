@@ -4,7 +4,7 @@ subtitle: "Research Methods, Spring 2025"
 author: "Ryan Scholte"
 format:
   pdf:
-    output-file: "Scholte-i-hw4-1"
+    output-file: "Scholte-i-hw4-2"
     output-ext: "pdf"
     header-includes:
       - \usepackage{float}
