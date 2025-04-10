@@ -1,0 +1,555 @@
+---
+title: "Homework 4"
+subtitle: "Research Methods, Spring 2025"
+author: "Ryan Scholte"
+format:
+  pdf:
+    output-file: "Scholte-i-hw4-3"
+    output-ext: "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
+jupyter: python3
+---
+You can access the [Repository](https://github.com/rscholt/HW4)
+
+# 1 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+
+# Load the data
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf
+
+# Load the data
+df = pd.read_csv("/Users/ryanscholte/Desktop/GitHub/HW4/data/output/final_ma_data.csv")
+
+
+#Q1
+
+#Q1
+# Group by year and county to count number of plans
+plan_counts = (
+    df.groupby(['year', 'fips'])
+    .size()
+    .reset_index(name='plan_count')
+)
+
+# Plot a box and whisker plot of plan counts by year
+
+# only plot counts from 0-50 ignore outliers
+plan_counts = plan_counts[plan_counts['plan_count'] <= 50]
+
+plt.figure(figsize=(12, 6))
+plan_counts.boxplot(column='plan_count', by='year', showfliers=False)
+plt.title('Distribution of Plan Counts by County Over Time')
+plt.suptitle('')
+plt.xlabel('Year')
+plt.ylabel('Number of Plans')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+```
+
+Data is filtered in earlier cleaning. 
+A median of 20 plans in 2010 sounds like a good number per county. while it seems to decrease to just above 10 in the later years. If this is a trend and continues to decrease below 10 that seems like a problem. Some counties had 100+ at the max but a rare outlier. Below 10 plans gives few options for residents and shows a high market concentration and lack of competition regionally. 
+
+# 2 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+# #Q2
+
+df2=df.copy()
+
+#print head 
+df2.head()
+# Filter to relevant years
+df_filtered = df2[df2['year'].isin([2010, 2012, 2015])]
+
+# Group and reshape to get counts per year/star_rating
+star_counts = (
+    df_filtered.groupby(['Star_Rating', 'year'])
+    .size()
+    .unstack(fill_value=0)
+    .sort_index()
+)
+
+# Ensure consistent order
+star_ratings = sorted(star_counts.index)
+
+# Plot setup
+x = np.arange(len(star_ratings))  # positions for each star rating
+width = 0.25  # width of each bar
+
+plt.figure(figsize=(10, 6))
+
+# Bars for each year
+plt.bar(x - width, star_counts[2010], width=width, label='2010')
+plt.bar(x,         star_counts[2012], width=width, label='2012')
+plt.bar(x + width, star_counts[2015], width=width, label='2015')
+
+# Labels and formatting
+plt.xticks(x, star_ratings)  # categorical star rating labels
+plt.xlabel('Star Rating')
+plt.ylabel('Number of Plans')
+plt.title('Star Rating Distribution (2010, 2012, 2015)')
+plt.legend(title='Year')
+plt.grid(axis='y', linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
+
+
+
+```
+
+Star rating counts have increased with higher ratings over time. In 2010 2.5 stars was a large majority and those plans seem to increase rating or be replaced by plans rated 3.0 by 2012 and some above, then to 4.0 by 2015 as the majority. 5.0 and 2.0 plans dont seem to change. 
+# 3 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+#Q3
+
+# Calculate the average benchmark payment for each year
+average_benchmark_payment = df.groupby('year')['ma_rate'].mean().reset_index()
+
+# Plot the average benchmark payment over time
+
+plt.figure(figsize=(10, 6))
+#adjust the y-axis to show show range 700-900
+plt.ylim(700, 900)
+plt.plot(average_benchmark_payment['year'], average_benchmark_payment['ma_rate'], marker='o')
+plt.title('Average Benchmark Payment Over Time (2010-2015)')
+plt.xlabel('Year')
+plt.ylabel('Average Benchmark Payment')
+plt.grid(True)
+plt.show()
+
+# Calculate the rise in the average benchmark payment from 2010 to 2015
+benchmark_2010 = average_benchmark_payment[average_benchmark_payment['year'] == 2010]['ma_rate'].values[0]
+benchmark_2015 = average_benchmark_payment[average_benchmark_payment['year'] == 2015]['ma_rate'].values[0]
+rise = benchmark_2015 - benchmark_2010
+print(f"The average benchmark payment changed by ${rise:.2f} from 2010 to 2015.")
+
+```
+Not much change from 2010-2013. but then increases by 25 in 2014 then decreases by almost 50 from 2014 to 2015. In the end a small decrease but some volitilty increasing recently. 
+
+# 4 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+#Q4
+
+df3=df.copy()
+
+# Calculate the average share of Medicare Advantage for each year
+df3['ma_share'] = df3['avg_enrolled'] / df3['avg_eligibles']
+df3 = df3.groupby('year')['ma_share'].mean().reset_index()
+
+# Plot the average share of Medicare Advantage over time
+plt.figure(figsize=(10, 6))
+plt.plot(df3['year'], df3['ma_share'], marker='o')
+plt.title('Average Share of Medicare Advantage Over Time (2010-2015)')
+plt.xlabel('Year')
+plt.ylabel('Average Share of Medicare Advantage')
+plt.grid(True)
+plt.show()
+
+
+
+```
+
+Medicare Advantage clearly increasing in popularity with more enrolled per eligible each year. With no clear correlation with benchmark payments.
+
+# 5 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+#Q5
+
+
+# Filter for 2010
+df_2010 = df[df['year'] == 2010]
+df_2010 = df_2010.dropna(subset=[ 'Star_Rating', 'avg_enrolled', 'avg_eligibles', 'partc_score', 'ma_rate'])
+df_2010 = df_2010.drop_duplicates(subset=["contractid", "planid", "county"])
+
+# List of variables used in the raw_rating calculation
+rating_vars = [
+    "breastcancer_screen", "rectalcancer_screen", "cv_cholscreen", "diabetes_cholscreen",
+    "glaucoma_test", "monitoring", "flu_vaccine", "pn_vaccine", "physical_health",
+    "mental_health", "osteo_test", "physical_monitor", "primaryaccess",
+    "hospital_followup", "depression_followup", "nodelays", "carequickly",
+    "overallrating_care", "overallrating_plan", "calltime",
+    "doctor_communicate", "customer_service", "osteo_manage",
+    "diabetes_eye", "diabetes_kidney", "diabetes_bloodsugar",
+    "diabetes_chol", "antidepressant", "bloodpressure", "ra_manage",
+    "copd_test", "betablocker", "bladder", "falling", "appeals_timely", "appeals_review"
+]
+
+# Compute raw_rating as the row-wise mean 
+df_2010["raw_rating"] = df_2010[rating_vars].mean(axis=1, skipna=True)
+
+columns_to_keep = [
+    "contractid", "planid", "fips", "avg_enrollment", "state", "county", "raw_rating",
+    "partc_score", "avg_eligibles", "avg_enrolled",  "risk_ab",
+    "Star_Rating",  "ma_rate", "plan_type", "partd"
+]
+
+# missing for some reason "premium_partc","bid", "avg_ffscost",
+
+# Subset the dataframe
+df_2010 = df_2010[columns_to_keep]
+
+# Make sure market share is computed
+
+# Create a filtered copy with market share calculated, without modifying original df_2010
+df_2010['mktshare'] = df_2010['avg_enrolled'] / df_2010['avg_eligibles']
+# filter to only plantype "HMO"
+df_2010_HMO = df_2010[df_2010["plan_type"] == "HMO/HMOPOS"]
+
+
+# Create rounded bins similar to the R logic
+df_2010["rounded_30"] = np.where(
+    (df_2010["raw_rating"] >= 2.75) & 
+    (df_2010["raw_rating"] < 3.00) & 
+    (df_2010["Star_Rating"] == 3.0), 1, 0)
+
+df_2010["rounded_35"] = np.where(
+    (df_2010["raw_rating"] >= 3.25) & 
+    (df_2010["raw_rating"] < 3.50) & 
+    (df_2010["Star_Rating"] == 3.5), 1, 0)
+
+df_2010["rounded_40"] = np.where(
+    (df_2010["raw_rating"] >= 3.75) & 
+    (df_2010["raw_rating"] < 4.00) & 
+    (df_2010["Star_Rating"] == 4.0), 1, 0)
+
+df_2010["rounded_45"] = np.where(
+    (df_2010["raw_rating"] >= 4.25) & 
+    (df_2010["raw_rating"] < 4.50) & 
+    (df_2010["Star_Rating"] == 4.5), 1, 0)
+
+df_2010["rounded_50"] = np.where(
+    (df_2010["raw_rating"] >= 4.75) & 
+    (df_2010["raw_rating"] < 5.00) & 
+    (df_2010["Star_Rating"] == 5.0), 1, 0)
+
+
+
+# Filter for star ratings of interest and group by Star_Rating
+rounded_summary = (
+    df_2010[df_2010["Star_Rating"].isin([3.0, 3.5, 4.0, 4.5, 5.0])]
+    .groupby("Star_Rating")
+    .agg(
+        count_30=("rounded_30", "sum"),
+        count_35=("rounded_35", "sum"),
+        count_40=("rounded_40", "sum"),
+        count_45=("rounded_45", "sum"),
+        count_50=("rounded_50", "sum")
+    )
+    .reset_index()
+)
+
+# Add a total column
+rounded_summary["rounded"] = (
+    rounded_summary["count_30"] +
+    rounded_summary["count_35"] +
+    rounded_summary["count_40"] +
+    rounded_summary["count_45"] +
+    rounded_summary["count_50"]
+)
+
+# Select relevant columns
+rounded_summary = rounded_summary[["Star_Rating", "rounded"]]
+
+# Display result
+rounded_summary
+
+
+
+```
+
+
+# 6 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+from pyfixest.estimation import feols
+
+# RD AT 3-STAR CUTOFF (raw = 2.75)
+df_2010['score_3'] = df_2010['raw_rating'] - 2.75
+df_2010['treat_3'] = (df_2010['Star_Rating'] == 3.0).astype(int)
+
+# Filter to within 0.125 bandwidth
+df_bw_3 = df_2010[df_2010['score_3'].between(-0.125, 0.125)].copy()
+df_bw_3 = df_bw_3[df_bw_3['Star_Rating'].isin([2.5, 3.0])]
+
+# Estimate with pyfixest
+model_3 = feols("mktshare ~ score_3 + treat_3", data=df_bw_3)
+
+# RD AT 3.5-STAR CUTOFF (raw = 3.25)
+
+df_2010['score_35'] = df_2010['raw_rating'] - 3.25
+df_2010['treat_35'] = (df_2010['Star_Rating'] == 3.5).astype(int)
+
+# Filter to within 0.125 bandwidth
+df_bw_35 = df_2010[df_2010['score_35'].between(-0.125, 0.125)].copy()
+df_bw_35 = df_bw_35[df_bw_35['Star_Rating'].isin([3.0, 3.5])]
+
+# Estimate with pyfixest
+model_35 = feols("mktshare ~ score_35 + treat_35 ", data=df_bw_35)
+
+#model summaries
+# print(model_3.summary())
+# print(model_35.summary())
+
+# Extract relevant model info from pyfixest, now including Intercept
+def extract_model_info(model, coef_labels):
+    coef = model.coef()
+    se = model.se()
+    n = model._N
+    r2 = model._r2
+
+    # Format coef (se)
+    formatted = {
+        "Intercept": f"{coef.get('Intercept', float('nan')):.3f} ({se.get('Intercept', float('nan')):.3f})"
+    }
+    formatted.update({
+        label: f"{coef.get(var, float('nan')):.3f} ({se.get(var, float('nan')):.3f})"
+        for var, label in coef_labels.items()
+    })
+    formatted["N"] = n
+    formatted["R2"] = round(r2, 3)
+    return formatted
+
+# Define label mappings
+coef_labels_3 = {
+    "treat_3": "Rounded",
+    "score_3": "Running Score"
+}
+coef_labels_35 = {
+    "treat_35": "Rounded",
+    "score_35": "Running Score"
+}
+
+# Extract model data
+row_3 = extract_model_info(model_3, coef_labels_3)
+row_35 = extract_model_info(model_35, coef_labels_35)
+
+# Build final DataFrame including intercept
+final_table = pd.DataFrame({
+    "": ["Intercept", "Rounded", "Running Score", "N", "R2"],
+    "3-Star Threshold": [
+        row_3["Intercept"], row_3["Rounded"], row_3["Running Score"],
+        row_3["N"], row_3["R2"]
+    ],
+    "3.5-Star Threshold": [
+        row_35["Intercept"], row_35["Rounded"], row_35["Running Score"],
+        row_35["N"], row_35["R2"]
+    ]
+})
+
+# Set index column
+final_table.set_index("", inplace=True)
+
+# Display styled table
+final_table.style.set_caption("Table 1: RD Estimates at 3-Star and 3.5-Star Thresholds")
+
+```
+
+
+# 7 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+
+# Define bandwidths
+bandwidths = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15]
+results = []
+
+for bw in bandwidths:
+    # --- 3-star ---
+    bw_3 = df_2010[df_2010['score_3'].between(-bw, bw)]
+    mod_3 = feols("mktshare ~ score_3 + treat_3", data=bw_3)
+    coef_3 = mod_3.coef().get("treat_3", np.nan)
+    se_3 = mod_3.se().get("treat_3", np.nan)
+
+    # --- 3.5-star ---
+    bw_35 = df_2010[df_2010['score_35'].between(-bw, bw)]
+    mod_35 = feols("mktshare ~ score_35 + treat_35", data=bw_35)
+    coef_35 = mod_35.coef().get("treat_35", np.nan)
+    se_35 = mod_35.se().get("treat_35", np.nan)
+
+    # Save all results
+    results.append({
+        "Bandwidth": bw,
+        "Effect at 3-star": coef_3,
+        "SE at 3-star": se_3,
+        "Effect at 3.5-star": coef_35,
+        "SE at 3.5-star": se_35
+    })
+
+# Convert to DataFrame
+bandwidth_df = pd.DataFrame(results)
+
+# --- Plotting with error bars ---
+plt.figure(figsize=(10, 6))
+
+# 3-star
+plt.errorbar(
+    bandwidth_df["Bandwidth"],
+    bandwidth_df["Effect at 3-star"],
+    yerr=1.96 * bandwidth_df["SE at 3-star"],
+    fmt='o', label="3-star", capsize=4, color='blue'
+)
+
+# 3.5-star
+plt.errorbar(
+    bandwidth_df["Bandwidth"],
+    bandwidth_df["Effect at 3.5-star"],
+    yerr=1.96 * bandwidth_df["SE at 3.5-star"],
+    fmt='o', label="3.5-star", capsize=4, color='orange'
+)
+
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.title("Treatment Effect with 95% Confidence Intervals by Bandwidth")
+plt.xlabel("Bandwidth")
+plt.ylabel("Estimated Treatment Effect")
+plt.legend(title="Threshold")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+```
+
+3* requiring a bandwidth greater than 0.1 for a strong effect but as bandwidth increases not very sensitive and stays strong. 
+
+3.5* much more sensitive to bandwidths with the strongest effect being at the smallest bandwidth of 0.1 then clearly dropping treatment effect strength at 0.15 and continues to decrease. Meaning it is much more sensitive. 
+
+# 8 
+
+```{python}
+
+#| echo: false  # Hides code but keeps output
+import seaborn as sns
+
+# KDE plot for 3-star cutoff (zoomed in)
+plt.figure(figsize=(10, 4))
+sns.kdeplot(df_2010['raw_rating'], bw_adjust=0.2, fill=True, color='skyblue')
+plt.axvline(2.75, color='red', linestyle='--', label='3-star cutoff (2.75)')
+plt.xlim(2.5, 3.0)
+plt.xticks(np.arange(2.5, 3.05, 0.05))
+plt.ylim(0, 8.0)
+plt.title(" Density of Running Variable Around 3-Star Cutoff")
+plt.xlabel("Running Variable")
+plt.ylabel("Density")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# KDE plot for 3.5-star cutoff (zoomed in)
+plt.figure(figsize=(10, 4))
+sns.kdeplot(df_2010['raw_rating'], bw_adjust=0.2, fill=True, color='orange')
+plt.axvline(3.25, color='red', linestyle='--', label='3.5-star cutoff (3.25)')
+plt.xlim(3.0, 3.5)
+plt.ylim(0, 5.0)
+plt.xticks(np.arange(3.0, 3.55, 0.05))
+plt.title(" Density of Running Variable Around 3.5-Star Cutoff")
+plt.xlabel("Running Variable")
+plt.ylabel("Density")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+```
+
+Visually at the 3.0* level contracts appear manipulated the running variable with a large spike just after the threshold with a clear large peak after the threshold. 
+While the 3.5* level was very stable across indicating no manupulation effect. 
+
+# 9
+```{python}
+
+#| echo: false  # Hides code but keeps output
+
+#9
+
+
+# Prep binary flags
+df_2010["is_hmo"] = df_2010["plan_type"].str.contains("HMO/HMOPOS", na=False).astype(int)
+df_2010["has_partd"] = (df_2010["partd"] == "Yes").astype(int)
+
+# Create threshold bands
+band_3 = df_2010[df_2010["raw_rating"].between(2.5, 3.0)].copy()
+band_3["group"] = np.where(band_3["raw_rating"] >= 2.75, "Above 3-Star", "Below 3-Star")
+band_3["group"] = pd.Categorical(band_3["group"], categories=["Below 3-Star", "Above 3-Star"], ordered=True)
+
+band_35 = df_2010[df_2010["raw_rating"].between(3.0, 3.5)].copy()
+band_35["group"] = np.where(band_35["raw_rating"] >= 3.25, "Above 3.5-Star", "Below 3.5-Star")
+
+# Plot HMO distribution near 3-star threshold
+plt.figure(figsize=(10, 4))
+sns.histplot(data=band_3, x="group", hue="is_hmo", multiple="dodge", shrink=0.8, palette="Set2")
+plt.title("HMO Distribution Around 3-Star Threshold (2.5 - 3.0)")
+plt.xlabel("Plan Group")
+plt.ylabel("Number of Plans")
+plt.legend(title="HMO", labels=["No", "Yes"])
+plt.tight_layout()
+plt.show()
+
+# Plot Part D distribution near 3-star threshold
+plt.figure(figsize=(10, 4))
+sns.histplot(data=band_3, x="group", hue="has_partd", multiple="dodge", shrink=0.8, palette="Set1")
+plt.title("Part D Distribution Around 3-Star Threshold (2.5 - 3.0)")
+plt.xlabel("Plan Group")
+plt.ylabel("Number of Plans")
+plt.legend(title="Part D", labels=["No", "Yes"])
+plt.tight_layout()
+plt.show()
+
+# Plot HMO distribution near 3.5-star threshold
+plt.figure(figsize=(10, 4))
+sns.histplot(data=band_35, x="group", hue="is_hmo", multiple="dodge", shrink=0.8, palette="Set2")
+plt.title("HMO Distribution Around 3.5-Star Threshold (3.0 - 3.5)")
+plt.xlabel("Plan Group")
+plt.ylabel("Number of Plans")
+plt.legend(title="HMO", labels=["No", "Yes"])
+plt.tight_layout()
+plt.show()
+
+# Plot Part D distribution near 3.5-star threshold
+plt.figure(figsize=(10, 4))
+sns.histplot(data=band_35, x="group", hue="has_partd", multiple="dodge", shrink=0.8, palette="Set1")
+plt.title("Part D Distribution Around 3.5-Star Threshold (3.0 - 3.5)")
+plt.xlabel("Plan Group")
+plt.ylabel("Number of Plans")
+plt.legend(title="Part D", labels=["No", "Yes"])
+plt.tight_layout()
+plt.show()
+
+```
+
+Shows that proportion of HMO above threshold is greater for both but more drastic at 3.0* level. Greater proportion of non part D above than below. However in general all areas have more HMO than non HMO and No Part D comapared to Part D in absolute counts. 
+
+# 10 
+
+There was some effect of rounding up star values showing manipultion. We know that star rating have increased and that enrollments have been increasing over time. Question 6 shows mostly strong positive coefficients indicating that there is an effect of star rating on market share. 
