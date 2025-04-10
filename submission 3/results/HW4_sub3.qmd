@@ -27,6 +27,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
+import warnings
+warnings.filterwarnings('ignore')
+
 
 # Load the data
 df = pd.read_csv("/Users/ryanscholte/Desktop/GitHub/HW4/data/output/final_ma_data.csv")
